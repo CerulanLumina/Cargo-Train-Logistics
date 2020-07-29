@@ -1,0 +1,6 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.0.1
+Date: 29.07.2020
+  Features:
+    - A way to request items from other wagons in the train
+    - A way to send items to other wagons in the train

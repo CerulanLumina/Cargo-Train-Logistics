@@ -1,0 +1,10 @@
+{
+	"name": "Cargo_Train_Logistics",
+	"version": "0.0.1",
+	"title": "Cargo Train Logistics - CTL",
+	"author": "LuziferSenpai",
+	"contact": "mods@luzifersenpai.de",
+	"description": "This mod allows you to request items from other wagons in the same train, same goes for sending items.",
+	"dependencies": ["base"],
+	"factorio_version": "0.18"
+}
