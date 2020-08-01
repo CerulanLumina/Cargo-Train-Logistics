@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.0.3
+Date: 01.08.2020
+  Bugfixes:
+    - Fixed a bug with choose-elem in the blacklist
+  Changes:
+    - Changed a bit of code
+  Features:
+    - Added a way to delete none existing items
+---------------------------------------------------------------------------------------------------
+Version: 0.0.2
+Date: 31.07.2020
+  Bugfixes:
+    - Fixed a bug when a configured train was moving
+---------------------------------------------------------------------------------------------------
 Version: 0.0.1
 Date: 29.07.2020
   Features:

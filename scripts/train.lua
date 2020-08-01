@@ -8,11 +8,12 @@ function train_data.new(train)
         id = tostring(train.id),
         wagons = {},
         storage_wagons = {},
-        next_index = nil
+        next_index = nil,
+        update_trains = ""
     }
 
     for _, entity in pairs(train.cargo_wagons) do
-        module.storage_wagons[tostring(entity.unit_number)] = entity
+        module.storage_wagons[tostring(entity.unit_number)] = {entity = entity, inventory = entity.get_inventory(defines.inventory.cargo_wagon)}
     end
 
     setmetatable(module, train_data.metatable)
@@ -27,14 +28,15 @@ function train_data:add_wagon(entity)
         request = {{item = nil, amount = 0}},
         blacklist = {{item = nil, amount = 0}},
         request_items = {},
-        blacklist_items = {}
+        blacklist_items = {},
+        inventory = entity.get_inventory(defines.inventory.cargo_wagon)
     }
     self.storage_wagons[tostring(entity.unit_number)] = nil
 end
 
 function train_data:remove_wagon(entity)
     self.wagons[tostring(entity.unit_number)] = nil
-    self.storage_wagons[tostring(entity.unit_number)] = entity
+    self.storage_wagons[tostring(entity.unit_number)] = {entity = entity, inventory = entity.get_inventory(defines.inventory.cargo_wagon)}
 end
 
 function train_data:update()
@@ -48,7 +50,13 @@ function train_data:update()
             local entity = wagon.entity
 
             if entity.valid and wagon.enabled then
-                local inventory = entity.get_output_inventory()
+                local inventory
+                
+                if wagon.inventory then
+                    inventory = wagon.inventory
+                else
+                    inventory = entity.get_inventory(defines.inventory.cargo_wagon)
+                end
 
                 for _, request in pairs(wagon.request) do
                     local item = request.item
@@ -60,15 +68,15 @@ function train_data:update()
                             local amount2 = amount
 
                             for _, storage_wagon in pairs(storage_wagons) do
-                                if storage_wagon.valid then
+                                if storage_wagon.entity.valid then
                                     if amount2 > 0 then
-                                        amount2 = amount2 - storage_wagon.get_output_inventory().remove({name = item, count = amount2})
+                                        amount2 = amount2 - storage_wagon.inventory.remove({name = item, count = amount2})
                                     else
                                         break
                                     end
                                 end
                             end
-                            
+
                             local amount3 = amount - amount2
 
                             if amount3 > 0 then
@@ -88,9 +96,9 @@ function train_data:update()
                             local amount2 = amount
 
                             for _, storage_wagon in pairs(storage_wagons) do
-                                if storage_wagon.valid then
+                                if storage_wagon.entity.valid then
                                     if amount2 > 0 then
-                                        amount2 = amount2 - storage_wagon.get_output_inventory().insert({name = item, count = amount2})
+                                        amount2 = amount2 - storage_wagon.inventory.insert({name = item, count = amount2})
                                     else
                                         break
                                     end
@@ -100,7 +108,7 @@ function train_data:update()
                             local amount3 = amount - amount2
 
                             if amount3 > 0 then
-                                inventory.remove({name = item, count = amount3})
+                                inventory.remove({name = item, count = amount3}) 
                             end
                         end
                     end
@@ -108,6 +116,23 @@ function train_data:update()
             end
         else
             self.next_index = nil
+        end
+    end
+end
+
+function train_data:on_configuration_changed()
+    if not self.update_trains then
+        self.update_trains = ""
+        
+        for _, wagon in pairs(self.wagons) do
+            if wagon.valid then wagon.inventory = wagon.entity.get_inventory(defines.inventory.cargo_wagon) end
+        end
+
+        local storage_wagons = self.storage_wagons
+        self.storage_wagons = {}
+
+        for index, wagon in pairs(storage_wagons) do
+            self.storage_wagons[index] = {entity = wagon, inventory = wagon.get_inventory(defines.inventory.cargo_wagon)}
         end
     end
 end

@@ -69,10 +69,10 @@ local on_gui_click = function(event)
         local number = name:sub(12, 13)
 
         if number == "01" then
-            local inventory = entity.get_output_inventory()
+            local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
+            local inventory = wagondata.inventory
 
             if inventory.is_filtered() then
-                local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
                 local itemtable = {}
                 local data_table = {}
                 local item_table = {}
@@ -350,7 +350,7 @@ local on_gui_elem_changed = function(event)
 
             if type(item) == "string" then
                 if wagondata.blacklist_items[item] then
-                    element.elem_value = blacklist[index].item
+                    element.elem_value = blacklist.item
 
                     player.print({"Cargo.AlreadyBlacklisted"})
                 else
@@ -421,7 +421,7 @@ local on_gui_opened = function(event)
 
             if trainmeta then
                 local wagondata2 = trainmeta.wagons[tostring(entity.unit_number)]
-                
+
                 if wagondata2 then
                     wagondata = wagondata2
                 end
@@ -625,6 +625,38 @@ lib.on_configuration_changed = function()
     global.script_data = global.script_data or script_data
 
     playerload()
+
+    local trains = script_data.trains
+
+    for _, train in pairs(trains) do
+        train:on_configuration_changed()
+
+        for _, wagon in pairs(train.wagons) do
+            for item, index in pairs(wagon.request_items) do
+                if not game.item_prototypes[item] then
+                    wagon.request_items[item] = nil
+
+                    table.remove(wagon.request, index)
+                end
+            end
+
+            for item, index in pairs(wagon.blacklist_items) do
+                if not game.item_prototypes[item] then
+                    wagon.blacklist_items[item] = nil
+
+                    table.remove(wagon.blacklist, index)
+                end
+            end
+        end
+    end
+
+    for _, player in pairs(script_data.players) do
+        if player.frame then
+            local entity = player.wagon
+            player:clear()
+            player:gui(trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)])
+        end
+    end
 end
 
 return lib
