@@ -4,6 +4,7 @@
 	"title": "Cargo Train Logistics - CTL",
 	"author": "LuziferSenpai",
 	"contact": "mods@luzifersenpai.de",
+	"homepage": "luzifersenpai.de",
 	"description": "This mod allows you turn your trains into logistic networks. Configurated wagons can request/push from/to not configured wagons.",
 	"dependencies": ["base"],
 	"factorio_version": "0.18"
