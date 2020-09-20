@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: 20.09.2020
+  Bugfixes:
+    - Fixed a bug, where the wagons didnt worked
+  Changes:
+    - Update to 1.0
+    - Is for now the final version of this mod
+---------------------------------------------------------------------------------------------------
+Version: 0.0.4
+Date: 08.08.2020
+  Bugfixes:
+    - Fixed a bug with inventory
+    - Fixed a bug with on_config_changed
+---------------------------------------------------------------------------------------------------
 Version: 0.0.3
 Date: 01.08.2020
   Bugfixes:
