@@ -59,30 +59,40 @@ function player_data:gui(wagondata)
     self.frame = frame
 end
 
-function player_data:request_tab(requests)
+function player_data:request_tab(request)
     local flow = self.request_flow
+
+    flow.clear()
+
     local header_request = flow.add{type = "frame", direction = "horizontal", style = "cargosubheader"}
     header_request.add{type = "label", caption = {"Cargo.RequestDescription"}, tooltip = {"Cargo.RequestTooltip"}, style = "subheader_caption_label"}
     header_request.add{type = "empty-widget", style = "cargowidget"}
+
     self.scrollpane_request = flow.add{type = "scroll-pane", direction = "vertical", style = "cargoscrollpane"}
     self.request_elems = {}
     self.request_textfields = {}
     self.request_sliders = {}
 
-    for i, request in pairs(requests) do
-        self:add_request(request.item, request.amount, i)
+    for item, amount in pairs(request) do
+        self:add_request(item, amount)
     end
+
+    self:add_request("cargodummy", 0)
 end
 
-function player_data:add_request(item, amount, index)
+function player_data:add_request(item, amount)
     local flow = self.scrollpane_request.add{type = "flow", direction = "horizontal", style = "cargorequestblacklistflow"}
-    table.insert(self.request_elems, flow.add{type = "choose-elem-button", name = "CARGO_CHOOSE01_" .. index, elem_type = "item", item = item, style = "cargochooseelem28"})
-    local textfield = flow.add{type = "textfield", name = "CARGO_CONFIRMED01_" .. index, text = "1", style = "slider_value_textfield"}
-    textfield.numeric = true
-    local slider = flow.add{type = "slider", name = "CARGO_SLIDER01_" .. index, minimum_value = 0, maximum_value = 100, value = 1, value_step = 10, style = "notched_slider"}
-    flow.add{type = "sprite-button", name = "CARGO_CLICK04_" .. index, sprite = "utility/trash", style = "tool_button_red"}
 
-    if type(item) == "string" then
+    self.request_elems[item] = flow.add{type = "choose-elem-button", name = "CARGO_CHOOSE01_" .. item, elem_type = "item", item = (item ~= "cargodummy" and item) or nil, style = "cargochooseelem28"}
+
+    local textfield = flow.add{type = "textfield", name = "CARGO_CONFIRMED01_" .. item, text = "1", style = "slider_value_textfield"}
+    textfield.numeric = true
+
+    local slider = flow.add{type = "slider", name = "CARGO_SLIDER01_" .. item, minimum_value = 0, maximum_value = 100, value = 1, value_step = 10, style = "notched_slider"}
+
+    flow.add{type = "sprite-button", name = "CARGO_CLICK04_" .. item, sprite = "utility/trash", style = "tool_button_red"}
+
+    if item ~= "cargodummy" then
         local stack_size = game.item_prototypes[item].stack_size
         textfield.text = amount
         slider.set_slider_minimum_maximum(0, stack_size * 10)
@@ -93,34 +103,44 @@ function player_data:add_request(item, amount, index)
         slider.enabled = false
     end
 
-    table.insert(self.request_textfields, textfield)
-    table.insert(self.request_sliders, slider)
+    self.request_textfields[item] = textfield
+    self.request_sliders[item] = slider
 end
 
-function player_data:blacklist_tab(blacklists)
+function player_data:blacklist_tab(blacklist)
     local flow = self.blacklist_flow
+
+    flow.clear()
+
     local header_blacklist = flow.add{type = "frame", direction = "horizontal", style = "cargosubheader"}
     header_blacklist.add{type = "label", caption = {"Cargo.BlacklistDescription"}, tooltip = {"Cargo.BlacklistTooltip"}, style = "subheader_caption_label"}
     header_blacklist.add{type = "empty-widget", style = "cargowidget"}
+
     self.scrollpane_blacklist = flow.add{type = "scroll-pane", direction = "vertical", style = "cargoscrollpane"}
     self.blacklist_elems = {}
     self.blacklist_textfields = {}
     self.blacklist_sliders = {}
 
-    for i, blacklist in pairs(blacklists) do
-        self:add_blacklist(blacklist.item, blacklist.amount, i)
+    for item, amount in pairs(blacklist) do
+        self:add_blacklist(item, amount)
     end
+
+    self:add_blacklist("cargodummy", 0)
 end
 
-function player_data:add_blacklist(item, amount, index)
+function player_data:add_blacklist(item, amount)
     local flow = self.scrollpane_blacklist.add{type = "flow", direction = "horizontal", style = "cargorequestblacklistflow"}
-    table.insert(self.blacklist_elems, flow.add{type = "choose-elem-button", name = "CARGO_CHOOSE02_" .. index, elem_type = "item", item = item, style = "cargochooseelem28"})
-    local textfield = flow.add{type = "textfield", name = "CARGO_CONFIRMED02_" .. index, text = "1", style = "slider_value_textfield"}
-    textfield.numeric = true
-    local slider = flow.add{type = "slider", name = "CARGO_SLIDER02_" .. index, minimum_value = 0, maximum_value = 100, value = 1, value_step = 10, style = "notched_slider"}
-    flow.add{type = "sprite-button", name = "CARGO_CLICK05_" .. index, sprite = "utility/trash", style = "tool_button_red"}
 
-    if type(item) == "string" then
+    self.blacklist_elems[item] = flow.add{type = "choose-elem-button", name = "CARGO_CHOOSE02_" .. item, elem_type = "item", item = (item ~= "cargodummy" and item) or nil, style = "cargochooseelem28"}
+
+    local textfield = flow.add{type = "textfield", name = "CARGO_CONFIRMED02_" .. item, text = "1", style = "slider_value_textfield"}
+    textfield.numeric = true
+
+    local slider = flow.add{type = "slider", name = "CARGO_SLIDER02_" .. item, minimum_value = 0, maximum_value = 100, value = 1, value_step = 10, style = "notched_slider"}
+
+    flow.add{type = "sprite-button", name = "CARGO_CLICK05_" .. item, sprite = "utility/trash", style = "tool_button_red"}
+
+    if item ~= "cargodummy" then
         local stack_size = game.item_prototypes[item].stack_size
         textfield.text = amount
         slider.set_slider_minimum_maximum(0, stack_size * 10)
@@ -131,15 +151,15 @@ function player_data:add_blacklist(item, amount, index)
         slider.enabled = false
     end
 
-    table.insert(self.blacklist_textfields, textfield)
-    table.insert(self.blacklist_sliders, slider)
+    self.blacklist_textfields[item] = textfield
+    self.blacklist_sliders[item] = slider
 end
 
 function player_data:clear()
-    self.wagon = nil
-    self.unit_number = nil
     self.frame.destroy()
     self.frame = nil
+    self.wagon = nil
+    self.unit_number = nil
     self.checkbox = nil
     self.request_flow = nil
     self.scrollpane_request = nil

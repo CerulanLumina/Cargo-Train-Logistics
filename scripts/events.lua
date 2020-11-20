@@ -23,7 +23,7 @@ local function new_train(train)
     }
 
     for _, entity in pairs(train.cargo_wagons) do
-        data.storage_wagons[tostring(entity.unit_number)] = {entity = entity, inventory = entity.get_inventory(defines.inventory.cargo_wagon)}
+        data.storage_wagons[tostring(entity.unit_number)] = entity
     end
 
     return data
@@ -33,10 +33,8 @@ local function add_wagon(traindata, entity)
     traindata.wagons[tostring(entity.unit_number)] = {
         entity = entity,
         enabled = true,
-        request = {{item = nil, amount = 0}},
-        blacklist = {{item = nil, amount = 0}},
-        request_items = {},
-        blacklist_items = {},
+        request = {},
+        blacklist = {},
         inventory = entity.get_inventory(defines.inventory.cargo_wagon)
     }
     traindata.storage_wagons[tostring(entity.unit_number)] = nil
@@ -44,69 +42,79 @@ end
 
 local function remove_wagon(traindata, entity)
     traindata.wagons[tostring(entity.unit_number)] = nil
-    traindata.storage_wagons[tostring(entity.unit_number)] = {entity = entity, inventory = entity.get_inventory(defines.inventory.cargo_wagon)}
+    traindata.storage_wagons[tostring(entity.unit_number)] = entity
 end
 
 local function update_train(train)
     local storage_wagons = train.storage_wagons
 
     if table_size(storage_wagons) > 0 then
+        for id, storage_wagon in pairs(storage_wagons) do
+            if not storage_wagon.valid then
+                storage_wagons[id] = nil
+            end
+        end
+
         for _, wagon in pairs(train.wagons) do
             if wagon.entity.valid and wagon.enabled then
-                local inventory = wagon.inventory
+                local request = table_deepcopy(wagon.request)
+                local blacklist = wagon.blacklist
 
-                for _, request in pairs(wagon.request) do
-                    local item = request.item
+                for name, amount in pairs(wagon.inventory.get_contents()) do
+                    if request[name] and request[name] > amount then
+                        local number1 = request[name] - amount
+                        local number2 = number1
 
-                    if item then
-                        local amount = request.amount - inventory.get_item_count(item)
+                        for _, storage_wagon in pairs(storage_wagons) do
+                            if storage_wagon.valid then
+                                number2 = number2 - storage_wagon.remove_item({name = name, count = number2})
 
-                        if amount > 0 then
-                            local amount2 = amount
-
-                            for _, storage_wagons in pairs(storage_wagons) do
-                                if storage_wagons.entity.valid then
-                                    if amount2 > 0 then
-                                        amount2 = amount2 - storage_wagons.inventory.remove({name = item, count = amount2})
-                                    else
-                                        break
-                                    end
+                                if number2 == 0 then
+                                    break
                                 end
                             end
+                        end
 
-                            local amount3 = amount - amount2
+                        if number1 ~= number2 then
+                            wagon.entity.insert({name = name, count = ((number2 == 0 and number1) or (number1 - number2))})
+                        end
 
-                            if amount3 > 0 then
-                                inventory.insert({name = item, count = amount3})
+                        request[name] = nil
+                    elseif blacklist[name] and amount > blacklist[name] then
+                        local number1 = amount - blacklist[name]
+                        local number2 = number1
+
+                        for _, storage_wagon in pairs(storage_wagons) do
+                            if storage_wagon.valid then
+                                number2 = number2 - storage_wagon.insert({name = name, count = number2})
+
+                                if number2 == 0 then
+                                    break
+                                end
                             end
+                        end
+
+                        if number1 ~= number2 then
+                            wagon.entity.remove_item({name = name, count = ((number2 == 0 and number1) or (number1 - number2))})
                         end
                     end
                 end
-                for _, blacklist in pairs(wagon.blacklist) do
-                    local item = blacklist.item
 
-                    if item then
-                        local amount = inventory.get_item_count(item) - blacklist.amount
+                for name, amount in pairs(request) do
+                    local number = amount
 
-                        if amount > 0 then
-                            local amount2 = amount
+                    for _, storage_wagon in pairs(storage_wagons) do
+                        if storage_wagon.valid then
+                            number = number - storage_wagon.remove_item({name = name, count = number})
 
-                            for _, storage_wagon in pairs(storage_wagons) do
-                                if storage_wagon.entity.valid then
-                                    if amount2 > 0 then
-                                        amount2 = amount2 - storage_wagon.inventory.insert({name = item, count = amount2})
-                                    else
-                                        break
-                                    end
-                                end
-                            end
-
-                            local amount3 = amount - amount2
-
-                            if amount3 > 0 then
-                                inventory.remove({name = item, count = amount3})
+                            if number == 0 then
+                                break
                             end
                         end
+                    end
+
+                    if amount ~= number then
+                        wagon.entity.insert({name = name, count = ((number == 0 and amount) or (amount - number))})
                     end
                 end
             end
@@ -141,6 +149,7 @@ local function on_entity_removed(event)
 
             if wagonmeta then
                 trainmeta.wagons[tostring(entity.unit_number)] = nil
+                trainmeta.storage_wagons[tostring(entity.unit_number)] = nil
             end
         end
     end
@@ -167,19 +176,18 @@ return {
         for _, train in pairs(script_data.trains) do
 
             for _, wagon in pairs(train.wagons) do
-                for item, index in pairs(wagon.request_items) do
-                    if not game.item_prototypes[item] then
-                        wagon.request_items[item] = nil
+                local request = wagon.request
+                local blacklist = wagon.blacklist
 
-                        table.remove(wagon.request, index)
+                for name, _ in pairs(request) do
+                    if not game.item_prototypes[name] then
+                        request[name] = nil
                     end
                 end
 
-                for item, index in pairs(wagon.blacklist_items) do
-                    if not game.item_prototypes[item] then
-                        wagon.blacklist_items[item] = nil
-
-                        table.remove(wagon.blacklist, index)
+                for name, _ in pairs(blacklist) do
+                    if not game.item_prototypes[name] then
+                        blacklist[name] = nil
                     end
                 end
             end
@@ -209,6 +217,29 @@ return {
                     end
 
                     global.script_data = nil
+                elseif oldchanges == "1.0.0" or oldchanges == "1.0.1" then
+                    for _, train in pairs(script_data.trains) do
+                        for id, storage_wagon in pairs(train.storage_wagons) do
+                            train.storage_wagons[id] = storage_wagon.entity
+                        end
+
+                        for _, wagon in pairs(train.wagons) do
+                            local t1 = {}
+                            local t2 = {}
+                            for _, data in pairs(wagon.request) do
+                                t1[data.item] = data.amount
+                            end
+
+                            for _, data in pairs(wagon.blacklist) do
+                                t2[data.item] = data.amount
+                            end
+
+                            wagon.request = table_deepcopy(t1)
+                            wagon.blacklist = table_deepcopy(t2)
+                            wagon.request_items = nil
+                            wagon.blacklist_items = nil
+                        end
+                    end
                 end
             end
         end
@@ -232,6 +263,7 @@ return {
 
             if name:sub(1, 11) == "CARGO_CHECK" then
                 local entity = script_data.players[tostring(event.player_index)].wagon
+
                 script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)].enabled = element.state
 
                 for _, playermeta in pairs(script_data.players) do
@@ -257,9 +289,7 @@ return {
 
                     if inventory.is_filtered() then
                         local itemtable = {}
-                        local data_table = {}
                         local item_table = {}
-                        local index = 1
 
                         for i = 1, #inventory do
                             local filter = inventory.get_filter(i)
@@ -276,25 +306,15 @@ return {
                         for itemname, filters in pairs(itemtable) do
                             local amount = game.item_prototypes[itemname].stack_size * filters
 
-                            table.insert(data_table, {item = itemname, amount = amount})
-
-                            item_table[itemname] = index
-
-                            index = index + 1
+                            item_table[itemname] = amount
                         end
 
-                        table.insert(data_table, {item = nil, amount = 0})
-
-                        wagondata.request = table_deepcopy(data_table)
-                        wagondata.blacklist = table_deepcopy(data_table)
-                        wagondata.request_items = table_deepcopy(item_table)
-                        wagondata.blacklist_items = table_deepcopy(item_table)
+                        wagondata.request = table_deepcopy(item_table)
+                        wagondata.blacklist = table_deepcopy(item_table)
 
                         for _, playermeta2 in pairs(script_data.players) do
                             if playermeta2.unit_number == entity.unit_number then
-                                playermeta2.request_flow.clear()
                                 playermeta2:request_tab(wagondata.request)
-                                playermeta2.blacklist_flow.clear()
                                 playermeta2:blacklist_tab(wagondata.blacklist)
                             end
                         end
@@ -339,46 +359,24 @@ return {
                     end
                 elseif number == "04" then
                     local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
-                    local index = tonumber(name:sub(15))
+                    local item = name:sub(15)
 
-                    if #wagondata.request == index then
-                        player.print({"Cargo.LastEntry"})
-                    else
-                        local item = wagondata.request[index].item
+                    wagondata.request[item] = nil
 
-                        if type(item) == "string" then
-                            wagondata.request_items[item] = nil
-                        end
-
-                        table.remove(wagondata.request, index)
-
-                        for _, playermeta2 in pairs(script_data.players) do
-                            if playermeta2.unit_number == entity.unit_number then
-                                playermeta2.request_flow.clear()
-                                playermeta2:request_tab(wagondata.request)
-                            end
+                    for _, playermeta2 in pairs(script_data.players) do
+                        if playermeta2.unit_number == entity.unit_number then
+                            playermeta2:request_tab(wagondata.request)
                         end
                     end
                 elseif number == "05" then
                     local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
-                    local index = tonumber(name:sub(15))
+                    local item = name:sub(15)
 
-                    if #wagondata.blacklist == index then
-                        player.print({"Cargo.LastEntry"})
-                    else
-                        local item = wagondata.blacklist[index].item
+                    wagondata.blacklist[item] = nil
 
-                        if type(item) == "string" then
-                            wagondata.blacklist_items[item] = nil
-                        end
-
-                        table.remove(wagondata.blacklist, index)
-
-                        for _, playermeta2 in pairs(script_data.players) do
-                            if playermeta2.unit_number == entity.unit_number then
-                                playermeta2.blacklist_flow.clear()
-                                playermeta2:blacklist_tab(wagondata.blacklist)
-                            end
+                    for _, playermeta2 in pairs(script_data.players) do
+                        if playermeta2.unit_number == entity.unit_number then
+                            playermeta2:blacklist_tab(wagondata.blacklist)
                         end
                     end
                 end
@@ -405,13 +403,13 @@ return {
                 local playermeta = script_data.players[tostring(event.player_index)]
                 local entity = playermeta.wagon
                 local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
+                local request = wagondata.request
+                local blacklist = wagondata.blacklist
                 local amount = tonumber(element.text)
                 local number = name:sub(16, 17)
-                local index = tonumber(name:sub(19))
+                local item = name:sub(19)
 
                 if number == "01" then
-                    local request = wagondata.request[index]
-                    local blacklist_item = wagondata.blacklist_items[request.item]
                     local update = false
 
                     if amount == 0 then
@@ -419,48 +417,36 @@ return {
                         element.text = 1
                     end
 
-                    request.amount = amount
+                    request[item] = amount
 
-                    if blacklist_item then
-                        local blacklist = wagondata.blacklist[blacklist_item]
-                        local check_amount = blacklist.amount
-
-                        if amount > check_amount then
-                            blacklist.amount = amount
-                            update = true
-                        end
+                    if blacklist[item] and amount > blacklist[item] then
+                        blacklist[item] = amount
+                        update = true
                     end
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.request_textfields[index].text = amount
-                            playermeta2.request_sliders[index].slider_value = amount
+                            playermeta2.request_textfields[item].text = amount
+                            playermeta2.request_sliders[item].slider_value = amount
 
-                        if update then
-                            playermeta2.blacklist_textfields[blacklist_item].text = amount
-                            playermeta2.blacklist_sliders[blacklist_item].slider_value = amount
+                            if update then
+                                playermeta2.blacklist_textfields[item].text = amount
+                                playermeta2.blacklist_sliders[item].slider_value = amount
+                            end
                         end
                     end
-                end
                 elseif number == "02" then
-                    local blacklist = wagondata.blacklist[index]
-                    local request_item = wagondata.request_items[blacklist.item]
-
-                    if request_item then
-                        local check_amount = wagondata.request[request_item].amount
-
-                        if amount < check_amount then
-                            amount = check_amount
-                            element.text = check_amount
-                        end
+                    if request[item] and amount < request[item] then
+                        amount = request[item]
+                        element.text = request[item]
                     end
 
-                    blacklist.amount = amount
+                    blacklist[item] = amount
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.blacklist_textfields[index].text = amount
-                            playermeta2.blacklist_sliders[index].slider_value = amount
+                            playermeta2.blacklist_textfields[item].text = amount
+                            playermeta2.blacklist_sliders[item].slider_value = amount
                         end
                     end
                 end
@@ -476,105 +462,61 @@ return {
                 local playermeta = script_data.players[tostring(player_id)]
                 local entity = playermeta.wagon
                 local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
+                local request = wagondata.request
                 local item = element.elem_value
                 local number = name:sub(13, 14)
-                local index = tonumber(name:sub(16))
+                local itemname = name:sub(16)
 
                 if number == "01" then
-                    local requests = wagondata.request
-                    local request = requests[index]
-
-                    if type(item) == "string" then
-                        if wagondata.request_items[item] then
-                            element.elem_value = request.item
+                    if item then
+                        if request[item] then
+                            element.elem_value = (itemname ~= "cargodummy" and itemname) or nil
 
                             player.print({"Cargo.AlreadyRequested"})
                         else
-                            local amount = game.item_prototypes[item].stack_size
-
-                            wagondata.request_items[item] = index
-
-                            if type(request.item) == "string" then
-                                wagondata.request_items[request.item] = nil
+                            if itemname ~= "cargodummy" then
+                                request[itemname] = nil
                             end
 
-                            request.item = item
-                            request.amount = amount
-
-                            if #requests == index then
-                                requests[index + 1] = {item = nil, amount = 0}
-                            end
+                            request[item] = game.item_prototypes[item].stack_size
                         end
                     else
-                        if #requests == index then
-                            if wagondata.request_items[request.item] then
-                                wagondata.request_items[request.item] = nil
-                            end
-
-                            request.item = nil
-                            request.amount = 0
-                        else
-                            table.remove(requests, index)
-                        end
-                    end
-
-                    for _, playermeta2 in pairs(script_data.players) do
-                        if playermeta2.wagon and playermeta2.wagon.unit_number == entity.unit_number then
-                            playermeta2.request_flow.clear()
-                            playermeta2:request_tab(requests)
-                        end
-                    end
-                elseif number == "02" then
-                    local blacklists = wagondata.blacklist
-                    local blacklist = blacklists[index]
-
-                    if type(item) == "string" then
-                        if wagondata.blacklist_items[item] then
-                            element.elem_value = blacklist.item
-
-                            player.print({"Cargo.AlreadyBlacklisted"})
-                        else
-                            local amount = game.item_prototypes[item].stack_size
-                            local request_item = wagondata.request_items[item]
-
-                            if request_item then
-                                local check_amount = wagondata.request[request_item].amount
-
-                                if amount < check_amount then
-                                    amount = check_amount
-                                end
-                            end
-
-                            wagondata.blacklist_items[item] = index
-
-                            if type(blacklist.item) == "string" then
-                                wagondata.blacklist_items[blacklist.item] = nil
-                            end
-
-                            blacklist.item = item
-                            blacklist.amount = amount
-
-                            if #blacklists == index then
-                                blacklists[index + 1] = {item = nil, amount = 0}
-                            end
-                        end
-                    else
-                        if #blacklists == index then
-                            if wagondata.blacklist_items[blacklist.item] then
-                                wagondata.blacklist_items[blacklist.item] = nil
-                            end
-
-                            blacklist.item = nil
-                            blacklist.amount = 0
-                        else
-                            table.remove(blacklists, index)
-                        end
+                        request[itemname] = nil
                     end
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.blacklist_flow.clear()
-                            playermeta2:blacklist_tab(blacklists)
+                            playermeta2:request_tab(request)
+                        end
+                    end
+                elseif number == "02" then
+                    local blacklist = wagondata.blacklist
+
+                    if item then
+                        if wagondata.blacklist[item] then
+                            element.elem_value = (itemname ~= "cargodummy" and itemname) or nil
+
+                            player.print({"Cargo.AlreadyBlacklisted"})
+                        else
+                            local amount = game.item_prototypes[item].stack_size
+
+                            if request[item] and amount < request[item] then
+                                amount = request[item]
+                            end
+
+                            if itemname ~= "cargodummy" then
+                                blacklist[itemname] = nil
+                            end
+
+                            blacklist[item] = amount
+                        end
+                    else
+                        request[itemname] = nil
+                    end
+
+                    for _, playermeta2 in pairs(script_data.players) do
+                        if playermeta2.unit_number == entity.unit_number then
+                            playermeta2:blacklist_tab(blacklist)
                         end
                     end
                 end
@@ -617,13 +559,13 @@ return {
                 local playermeta = script_data.players[tostring(event.player_index)]
                 local entity = playermeta.wagon
                 local wagondata = script_data.trains[tostring(entity.train.id)].wagons[tostring(entity.unit_number)]
+                local request = wagondata.request
+                local blacklist = wagondata.blacklist
                 local amount = element.slider_value
                 local number = name:sub(13, 14)
-                local index = tonumber(name:sub(16))
+                local item = name:sub(16)
 
                 if number == "01" then
-                    local request = wagondata.request[index]
-                    local blacklist_item = wagondata.blacklist_items[request.item]
                     local update = false
 
                     if amount == 0 then
@@ -631,48 +573,36 @@ return {
                         element.slider_value = 1
                     end
 
-                    request.amount = amount
+                    request[item] = amount
 
-                    if blacklist_item then
-                        local blacklist = wagondata.blacklist[blacklist_item]
-                        local check_amount = blacklist.amount
-
-                        if amount > check_amount then
-                            blacklist.amount = amount
-                            update = true
-                        end
+                    if blacklist[item] and amount > blacklist[item] then
+                        blacklist[item] = amount
+                        update = true
                     end
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.request_textfields[index].text = amount
-                            playermeta2.request_sliders[index].slider_value = amount
+                            playermeta2.request_textfields[item].text = amount
+                            playermeta2.request_sliders[item].slider_value = amount
 
                             if update then
-                                playermeta2.blacklist_textfields[blacklist_item].text = amount
-                                playermeta2.blacklist_sliders[blacklist_item].slider_value = amount
+                                playermeta2.blacklist_textfields[item].text = amount
+                                playermeta2.blacklist_sliders[item].slider_value = amount
                             end
                         end
                     end
                 elseif number == "02" then
-                    local blacklist = wagondata.blacklist[index]
-                    local request_item = wagondata.request_items[blacklist.item]
-
-                    if request_item then
-                        local check_amount = wagondata.request[request_item].amount
-
-                        if amount < check_amount then
-                            amount = check_amount
-                            element.slider_value = check_amount
-                        end
+                    if request[item] and amount < request[item] then
+                        amount = request[item]
+                        element.slider_value = request[item]
                     end
 
-                    blacklist.amount = amount
+                    blacklist[item] = amount
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.blacklist_textfields[index].text = amount
-                            playermeta2.blacklist_sliders[index].slider_value = amount
+                            playermeta2.blacklist_textfields[item].text = amount
+                            playermeta2.blacklist_sliders[item].slider_value = amount
                         end
                     end
                 end
@@ -703,7 +633,7 @@ return {
                         if traindata then
                             if not traindata.wagons[tostring(entity.unit_number)] then
                                 add_wagon(traindata, entity)
-                                
+
                                 traindata.wagons[tostring(entity.unit_number)] = data
                             end
                         else
@@ -733,15 +663,15 @@ return {
                         if traindata then
                             if not traindata.wagons[tostring(entity.unit_number)] then
                                 add_wagon(traindata, entity)
-                                
+
                                 traindata.wagons[tostring(entity.unit_number)] = data
                             end
                         else
                             traindata = new_train(train)
                             script_data.trains[trainid] = traindata
-                            
+
                             add_wagon(traindata, entity)
-                            
+
                             traindata.wagons[tostring(entity.unit_number)] = data
                         end
                     end
