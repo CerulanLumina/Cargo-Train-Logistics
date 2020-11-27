@@ -94,7 +94,7 @@ function player_data:add_request(item, amount)
 
     if item ~= "cargodummy" then
         local stack_size = game.item_prototypes[item].stack_size
-        textfield.text = amount
+        textfield.text = tostring(amount)
         slider.set_slider_minimum_maximum(0, stack_size * 10)
         slider.slider_value = amount
         slider.set_slider_value_step(stack_size)
@@ -142,7 +142,7 @@ function player_data:add_blacklist(item, amount)
 
     if item ~= "cargodummy" then
         local stack_size = game.item_prototypes[item].stack_size
-        textfield.text = amount
+        textfield.text = tostring(amount)
         slider.set_slider_minimum_maximum(0, stack_size * 10)
         slider.slider_value = amount
         slider.set_slider_value_step(stack_size)

@@ -426,11 +426,11 @@ return {
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.request_textfields[item].text = amount
+                            playermeta2.request_textfields[item].text = tostring(amount)
                             playermeta2.request_sliders[item].slider_value = amount
 
                             if update then
-                                playermeta2.blacklist_textfields[item].text = amount
+                                playermeta2.blacklist_textfields[item].text = tostring(amount)
                                 playermeta2.blacklist_sliders[item].slider_value = amount
                             end
                         end
@@ -445,7 +445,7 @@ return {
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.blacklist_textfields[item].text = amount
+                            playermeta2.blacklist_textfields[item].text = tostring(amount)
                             playermeta2.blacklist_sliders[item].slider_value = amount
                         end
                     end
@@ -582,11 +582,11 @@ return {
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.request_textfields[item].text = amount
+                            playermeta2.request_textfields[item].text = tostring(amount)
                             playermeta2.request_sliders[item].slider_value = amount
 
                             if update then
-                                playermeta2.blacklist_textfields[item].text = amount
+                                playermeta2.blacklist_textfields[item].text = tostring(amount)
                                 playermeta2.blacklist_sliders[item].slider_value = amount
                             end
                         end
@@ -601,7 +601,7 @@ return {
 
                     for _, playermeta2 in pairs(script_data.players) do
                         if playermeta2.unit_number == entity.unit_number then
-                            playermeta2.blacklist_textfields[item].text = amount
+                            playermeta2.blacklist_textfields[item].text = tostring(amount)
                             playermeta2.blacklist_sliders[item].slider_value = amount
                         end
                     end
