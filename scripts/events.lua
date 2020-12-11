@@ -78,8 +78,6 @@ local function update_train(train)
                         if number1 ~= number2 then
                             wagon.entity.insert({name = name, count = ((number2 == 0 and number1) or (number1 - number2))})
                         end
-
-                        request[name] = nil
                     elseif blacklist[name] and amount > blacklist[name] then
                         local number1 = amount - blacklist[name]
                         local number2 = number1
@@ -98,6 +96,8 @@ local function update_train(train)
                             wagon.entity.remove_item({name = name, count = ((number2 == 0 and number1) or (number1 - number2))})
                         end
                     end
+
+                    request[name] = nil
                 end
 
                 for name, amount in pairs(request) do
